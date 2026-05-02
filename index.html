@@ -4,13 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shelf Manager</title>
+    
+    <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#F6F8FB">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
         :root {
-            /* FIXED: Removed 'var()' from the variable declaration */
             --bg-color: #F6F8FB; 
             --surface-color: #FFFFFF;
             --text-main: #1C1C1E;
@@ -59,6 +62,22 @@
         @keyframes expandSearch { from { width: 0; opacity: 0; } to { width: 100%; opacity: 1; } }
         #search-input { border: none; background: transparent; width: 100%; height: 100%; outline: none; font-family: 'Inter'; font-size: 15px; color: var(--text-main); }
         #search-input::placeholder { color: var(--text-sec); }
+
+        /* Install Banner UI */
+        .install-banner {
+            display: none; align-items: center; justify-content: space-between;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px);
+            padding: 12px 20px; border-bottom: 1px solid rgba(0,0,0,0.05);
+            animation: slideDown 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 9; flex-shrink: 0;
+        }
+        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .install-text strong { display: block; font-size: 14px; font-weight: 600; color: var(--text-main); }
+        .install-text span { font-size: 11px; color: var(--text-sec); }
+        .install-actions { display: flex; gap: 8px; }
+        .btn-sm { padding: 6px 14px; border-radius: 999px; border: none; font-size: 12px; font-weight: 600; font-family: 'Inter'; cursor: pointer; }
+        .btn-sm.cancel { background: #F2F4F8; color: var(--text-sec); }
+        .btn-sm.primary { background: var(--primary-grad); color: white; }
 
         .container { flex: 1; position: relative; overflow: hidden; }
         .view { display: none; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 16px 20px 90px 20px; animation: fadeIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -162,6 +181,18 @@
         </div>
     </header>
 
+    <!-- Custom PWA Install Prompt Banner -->
+    <div id="install-banner" class="install-banner">
+        <div class="install-text">
+            <strong>Install App</strong>
+            <span>Add to home screen for quick access</span>
+        </div>
+        <div class="install-actions">
+            <button class="btn-sm cancel" onclick="dismissInstall()">Later</button>
+            <button class="btn-sm primary" onclick="installPWA()">Install</button>
+        </div>
+    </div>
+
     <div class="container">
         <main id="tab-shelves" class="view active"><div class="shelf-grid" id="shelf-grid"></div></main>
         <main id="tab-expired" class="view"><div class="list-container" id="list-expired"></div></main>
@@ -190,7 +221,7 @@
             
             <div class="bottom-actions">
                 <button class="btn btn-primary" onclick="saveRental()">Save Details</button>
-                <button class="btn btn-danger" id="btn-clear" onclick="promptClearShelf()" style="display: none;">Clear Shelf</button>
+                <button class="btn btn-danger" id="btn-clear" onclick="promptClearShelf()" style="display: none;">Clear</button>
             </div>
         </main>
     </div>
@@ -213,11 +244,41 @@
         </div>
     </div>
 
-    <!-- PWA Setup -->
+    <!-- PWA Setup & Installation Trigger -->
     <script>
+        // Register Service worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(reg => console.log('SW registered!', reg))
+            navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('SW registered!'))
             .catch(err => console.log('SW failed', err));
+        }
+
+        // PWA Installation Logic
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67+ from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            deferredPrompt = e;
+            // Update UI to notify the user they can add to home screen
+            document.getElementById('install-banner').style.display = 'flex';
+        });
+
+        function installPWA() {
+            document.getElementById('install-banner').style.display = 'none';
+            if (deferredPrompt) {
+                deferredPrompt.prompt(); // Show the native browser prompt
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User installed PWA');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+
+        function dismissInstall() {
+            document.getElementById('install-banner').style.display = 'none';
         }
     </script>
 
@@ -230,13 +291,13 @@
         // REPLACE THIS OBJECT WITH YOUR FIREBASE CONFIG
         // ==========================================
         const firebaseConfig = {
-  apiKey: "AIzaSyDuX25LHt_xrrNCLXvnTTSm6POz08fZKN4",
-  authDomain: "shelfmanager-51ea4.firebaseapp.com",
-  projectId: "shelfmanager-51ea4",
-  storageBucket: "shelfmanager-51ea4.firebasestorage.app",
-  messagingSenderId: "712681345757",
-  appId: "1:712681345757:web:fc93b10d65a9f986504134"
-};
+            apiKey: "AIzaSyDuX25LHt_xrrNCLXvnTTSm6POz08fZKN4",
+            authDomain: "shelfmanager-51ea4.firebaseapp.com",
+            projectId: "shelfmanager-51ea4",
+            storageBucket: "shelfmanager-51ea4.firebasestorage.app",
+            messagingSenderId: "712681345757",
+            appId: "1:712681345757:web:fc93b10d65a9f986504134"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
