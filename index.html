@@ -8,7 +8,8 @@
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#F6F8FB">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <!-- Updated icon path to root folder -->
+    <link rel="apple-touch-icon" href="icon-192.png">
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -185,9 +186,9 @@
     <div id="install-banner" class="install-banner">
         <div class="install-text">
             <strong>Install App</strong>
-            <span>Add to home screen for quick access</span>
+            <span id="install-hint">Add to home screen for quick access</span>
         </div>
-        <div class="install-actions">
+        <div class="install-actions" id="install-actions">
             <button class="btn-sm cancel" onclick="dismissInstall()">Later</button>
             <button class="btn-sm primary" onclick="installPWA()">Install</button>
         </div>
@@ -244,42 +245,48 @@
         </div>
     </div>
 
-    <!-- PWA Setup & Installation Trigger -->
+    <!-- PWA Setup & Smart Installation Trigger -->
     <script>
-        // Register Service worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('SW registered!'))
-            .catch(err => console.log('SW failed', err));
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('SW registered!'))
+                .catch(err => console.log('SW failed', err));
+            });
         }
 
-        // PWA Installation Logic
+        const installBanner = document.getElementById('install-banner');
         let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent Chrome 67+ from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later.
-            deferredPrompt = e;
-            // Update UI to notify the user they can add to home screen
-            document.getElementById('install-banner').style.display = 'flex';
-        });
+
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        if (!isStandalone) {
+            if (isIOS) {
+                document.getElementById('install-hint').innerText = "Tap the Share icon below and select 'Add to Home Screen'";
+                document.getElementById('install-actions').innerHTML = `<button class="btn-sm cancel" onclick="dismissInstall()">Got it</button>`;
+                setTimeout(() => { installBanner.style.display = 'flex'; }, 2000);
+            } else {
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault(); 
+                    deferredPrompt = e; 
+                    installBanner.style.display = 'flex'; 
+                });
+            }
+        }
 
         function installPWA() {
-            document.getElementById('install-banner').style.display = 'none';
+            installBanner.style.display = 'none';
             if (deferredPrompt) {
-                deferredPrompt.prompt(); // Show the native browser prompt
+                deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User installed PWA');
-                    }
+                    if (choiceResult.outcome === 'accepted') console.log('User installed PWA');
                     deferredPrompt = null;
                 });
             }
         }
 
-        function dismissInstall() {
-            document.getElementById('install-banner').style.display = 'none';
-        }
+        function dismissInstall() { installBanner.style.display = 'none'; }
     </script>
 
     <!-- FIREBASE SDK & APP LOGIC -->
@@ -287,9 +294,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // ==========================================
-        // REPLACE THIS OBJECT WITH YOUR FIREBASE CONFIG
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDuX25LHt_xrrNCLXvnTTSm6POz08fZKN4",
             authDomain: "shelfmanager-51ea4.firebaseapp.com",
@@ -314,7 +318,6 @@
         const shelvesRef = collection(db, "shelves");
         onSnapshot(shelvesRef, async (snapshot) => {
             if (snapshot.empty) {
-                // Initialize Database if empty
                 const batch = writeBatch(db);
                 for (let i = 1; i <= 24; i++) {
                     const id = `EC${String(i).padStart(2, '0')}`;
@@ -324,7 +327,6 @@
                 await batch.commit();
             } else {
                 window.shelves = snapshot.docs.map(doc => doc.data());
-                // Sort by ID to ensure EC01 to EC24 order
                 window.shelves.sort((a, b) => a.id.localeCompare(b.id));
                 document.getElementById('loading-overlay').style.opacity = '0';
                 refreshAllViews();
