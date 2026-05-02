@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shelf Manager</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#F6F8FB">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            /* FIXED: Removed 'var()' from the variable declaration */
+            --bg-color: #F6F8FB; 
+            --surface-color: #FFFFFF;
+            --text-main: #1C1C1E;
+            --text-sec: #8E8E93;
+            --primary: #007AFF;
+            --primary-grad: linear-gradient(135deg, #007AFF 0%, #0056D6 100%);
+            --c-red: #FF3B30; --c-red-bg: #FFEAE9; --c-red-border: #FFD4D2;
+            --c-orange: #FF9500; --c-orange-bg: #FFF4E5; --c-orange-border: #FFE2B8;
+            --c-green: #34C759; --c-green-bg: #EAF9EE; --c-green-border: #CBEFDB;
+            --c-purple: #AF52DE; --c-purple-bg: #F7EFFF; --c-purple-border: #E8D3FA;
+            --border-radius-lg: 999px; --border-radius-md: 20px; --border-radius-sm: 14px;
+            --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.04);
+            --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            height: 100%; height: 100dvh; overflow: hidden;
+            font-family: 'Inter', sans-serif; color: var(--text-main);
+            display: flex; flex-direction: column;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 122, 255, 0.06) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(175, 82, 222, 0.06) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(52, 199, 89, 0.06) 0px, transparent 50%);
+        }
+
+        header {
+            flex-shrink: 0; height: 64px; padding: 0 20px;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 10;
+        }
+
+        header h1 { position: absolute; left: 50%; transform: translateX(-50%); font-size: 19px; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; transition: opacity 0.2s;}
+        .header-left { display: flex; align-items: center; flex: 1; overflow: hidden; z-index: 2; }
+        .header-right { display: flex; align-items: center; z-index: 2; }
+        .icon-btn { background: none; border: none; color: var(--text-main); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; margin-left: -8px;}
+        .icon-btn:active { background: rgba(0,0,0,0.06); transform: scale(0.9); }
+        #btn-back { display: none; }
+
+        .search-container { display: none; flex: 1; align-items: center; background: rgba(0,0,0,0.05); border-radius: 999px; padding: 0 16px; height: 38px; margin-right: 12px; animation: expandSearch 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        @keyframes expandSearch { from { width: 0; opacity: 0; } to { width: 100%; opacity: 1; } }
+        #search-input { border: none; background: transparent; width: 100%; height: 100%; outline: none; font-family: 'Inter'; font-size: 15px; color: var(--text-main); }
+        #search-input::placeholder { color: var(--text-sec); }
+
+        .container { flex: 1; position: relative; overflow: hidden; }
+        .view { display: none; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 16px 20px 90px 20px; animation: fadeIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        #view-detail { padding: 16px 20px 20px 20px; overflow-y: hidden; }
+        .view.active { display: block; }
+        #view-detail.active { display: flex; flex-direction: column; }
+        .view::-webkit-scrollbar { display: none; }
+        .view { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+
+        .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; padding-bottom: 24px; }
+        @media (max-width: 500px) { .shelf-grid { grid-template-columns: repeat(3, 1fr); } }
+        .shelf-tile { background-color: var(--surface-color); border-radius: var(--border-radius-md); aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: var(--shadow-soft); cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); border: 1.5px solid rgba(255,255,255,0.5); padding: 8px;}
+        .shelf-tile:active { transform: scale(0.92); }
+        .shelf-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .shelf-party { font-size: 10px; font-weight: 500; color: var(--text-sec); text-align: center; width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; height: 2.6em; }
+
+        .shelf-tile.rented { background: var(--c-green-bg); border-color: var(--c-green-border); }
+        .shelf-tile.rented .shelf-name { color: #1E823A; } .shelf-tile.rented .shelf-party { color: #239443; opacity: 0.8;}
+        .shelf-tile.soon { background: var(--c-purple-bg); border-color: var(--c-purple-border); }
+        .shelf-tile.soon .shelf-name { color: #8222B5; } .shelf-tile.soon .shelf-party { color: #9A28D6; opacity: 0.8;}
+        .shelf-tile.due { background: var(--c-orange-bg); border-color: var(--c-orange-border); }
+        .shelf-tile.due .shelf-name { color: #B36800; } .shelf-tile.due .shelf-party { color: #D17900; opacity: 0.8;}
+        .shelf-tile.expired { background: var(--c-red-bg); border-color: var(--c-red-border); }
+        .shelf-tile.expired .shelf-name { color: #CC2319; } .shelf-tile.expired .shelf-party { color: #E82A1F; opacity: 0.8;}
+
+        .list-container { display: flex; flex-direction: column; gap: 12px; }
+        .list-item { background: var(--surface-color); padding: 16px 20px; border-radius: var(--border-radius-sm); box-shadow: var(--shadow-soft); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.5);}
+        .list-item:active { transform: scale(0.97); }
+        .list-item.t-red { background: var(--c-red-bg); border-color: var(--c-red-border); }
+        .list-item.t-orange { background: var(--c-orange-bg); border-color: var(--c-orange-border); }
+        .list-item.t-purple { background: var(--c-purple-bg); border-color: var(--c-purple-border); }
+        .list-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+        .list-sub { font-size: 12px; font-weight: 500; color: var(--text-sec); opacity: 0.9; }
+        .list-val { font-size: 14px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.7); }
+        .empty-state { color: var(--text-sec); font-size: 14px; font-weight: 500; text-align: center; padding: 40px 0; }
+        .hide-search { display: none !important; }
+
+        .form-group { margin-bottom: 12px; flex-shrink: 1; width: 100%;}
+        .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-sec); margin-bottom: 6px; padding-left: 6px;}
+        .form-control { width: 100%; background: var(--surface-color); border: 1px solid transparent; padding: 14px 16px; border-radius: var(--border-radius-sm); font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 500; color: var(--text-main); outline: none; box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: all 0.2s ease;}
+        .form-control:focus { border-color: var(--primary); box-shadow: 0 4px 16px rgba(0,122,255,0.1); }
+        .row { display: flex; gap: 12px; } .row .form-group { flex: 1; }
+
+        .financial-box { width: 100%; background: var(--surface-color); border-radius: var(--border-radius-sm); display: flex; padding: 12px 0; border: 1px solid rgba(0,0,0,0.02); box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+        .fin-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;}
+        .fin-col:not(:last-child)::after { content: ''; position: absolute; right: 0; top: 15%; bottom: 15%; width: 1px; background: rgba(0,0,0,0.05);}
+        .fin-lbl { font-size: 10px; font-weight: 700; color: var(--text-sec); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;}
+        .fin-val { font-size: 16px; font-weight: 700; }
+
+        .bottom-actions { margin-top: auto; display: flex; gap: 12px; flex-shrink: 0; padding-top: 10px; }
+        .btn { flex: 1; padding: 14px; border-radius: var(--border-radius-lg); border: none; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;}
+        .btn:active { transform: scale(0.96); }
+        .btn-primary { background: var(--primary-grad); color: white; box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2); }
+        .btn-danger { background: var(--c-red-bg); color: var(--c-red); border: 1px solid var(--c-red-border); }
+
+        .bottom-nav-container { position: absolute; bottom: 16px; left: 0; right: 0; display: flex; justify-content: center; z-index: 100; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); padding: 0 20px;}
+        .bottom-nav-container.hidden { transform: translateY(100px); }
+        .bottom-nav { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%); border-radius: 999px; box-shadow: var(--shadow-float); display: flex; height: 56px; width: 100%; max-width: 320px; padding: 4px; border: 1px solid rgba(255,255,255,0.9);}
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sec); font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; position: relative; border-radius: 999px; margin: 2px;}
+        .nav-item.active { color: var(--primary); background: rgba(0, 122, 255, 0.08); }
+        .nav-item svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2.2; fill: none; margin-bottom: 2px; transition: all 0.3s;}
+        .nav-item.active svg { stroke-width: 2.5; transform: translateY(-1px); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;}
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .custom-modal { background: var(--surface-color); border-radius: 28px; width: 85%; max-width: 310px; padding: 24px; text-align: center; box-shadow: 0 24px 48px rgba(0,0,0,0.15); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);}
+        .modal-overlay.active .custom-modal { transform: scale(1); }
+        .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text-main); }
+        .modal-message { font-size: 14px; color: var(--text-sec); margin-bottom: 24px; line-height: 1.4; }
+        .modal-actions { display: flex; gap: 10px; }
+        .btn-modal { flex: 1; padding: 14px; border-radius: 999px; border: none; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px; cursor: pointer; transition: transform 0.2s;}
+        .btn-modal:active { transform: scale(0.95); }
+        .btn-modal.cancel { background: #F2F4F8; color: var(--text-main); }
+        .btn-modal.confirm { background: var(--c-red-bg); color: var(--c-red); }
+        .btn-modal.alert-ok { background: var(--primary-grad); color: white; }
+        
+        #loading-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: var(--bg-color); z-index: 9999; display: flex; align-items:center; justify-content: center; font-weight: 600; transition: opacity 0.5s; pointer-events: none; }
+    </style>
+</head>
+<body>
+    
+    <div id="loading-overlay">Syncing Database...</div>
+
+    <header>
+        <div class="header-left">
+            <button class="icon-btn" id="btn-back" onclick="closeDetail()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div class="search-container" id="search-box">
+                <input type="text" id="search-input" placeholder="Search shelf..." onkeyup="handleSearch(this.value)">
+            </div>
+        </div>
+        <h1 id="header-title">Shelves</h1>
+        <div class="header-right">
+            <button class="icon-btn" id="btn-search" onclick="toggleSearch()">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <main id="tab-shelves" class="view active"><div class="shelf-grid" id="shelf-grid"></div></main>
+        <main id="tab-expired" class="view"><div class="list-container" id="list-expired"></div></main>
+        <main id="tab-pending" class="view"><div class="list-container" id="list-pending"></div></main>
+        <main id="tab-soon" class="view"><div class="list-container" id="list-soon"></div></main>
+
+        <main id="view-detail" class="view" style="animation: slideInRight 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);">
+            <input type="hidden" id="shelf-id">
+            <div class="form-group"><label>Party Name</label><input type="text" class="form-control" id="f-party" placeholder="Enter party name"></div>
+            <div class="row">
+                <div class="form-group"><label>From Date</label><input type="date" class="form-control" id="f-date"></div>
+                <div class="form-group"><label>Period (Days)</label><input type="number" class="form-control" id="f-period" placeholder="e.g. 30"></div>
+            </div>
+            <div class="form-group"><label>Total Rental Amount</label><input type="number" class="form-control" id="f-rent" placeholder="0" oninput="updateDetailStats()"></div>
+            
+            <div class="form-group" id="financial-section" style="display: none;">
+                <label>Financial Summary</label>
+                <div class="financial-box">
+                    <div class="fin-col"><span class="fin-lbl">Total</span><span class="fin-val" id="stat-total">₹0</span></div>
+                    <div class="fin-col"><span class="fin-lbl" style="color: var(--c-green)">Paid</span><span class="fin-val" id="stat-paid" style="color: var(--c-green)">₹0</span></div>
+                    <div class="fin-col"><span class="fin-lbl" style="color: var(--c-orange)">Due</span><span class="fin-val" id="stat-due" style="color: var(--c-orange)">₹0</span></div>
+                </div>
+            </div>
+            
+            <div class="form-group"><label>Add Payment (Amount)</label><input type="number" class="form-control" id="f-payment" placeholder="Amount received today" oninput="updateDetailStats()"></div>
+            
+            <div class="bottom-actions">
+                <button class="btn btn-primary" onclick="saveRental()">Save Details</button>
+                <button class="btn btn-danger" id="btn-clear" onclick="promptClearShelf()" style="display: none;">Clear Shelf</button>
+            </div>
+        </main>
+    </div>
+
+    <div class="bottom-nav-container" id="nav-container">
+        <nav class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('shelves', this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>Shelves</div>
+            <div class="nav-item" onclick="switchTab('expired', this)"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Expired</div>
+            <div class="nav-item" onclick="switchTab('pending', this)"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pending</div>
+            <div class="nav-item" onclick="switchTab('soon', this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Soon</div>
+        </nav>
+    </div>
+
+    <!-- Custom App Modals -->
+    <div id="custom-modal-overlay" class="modal-overlay">
+        <div class="custom-modal">
+            <h3 class="modal-title" id="modal-title">Title</h3>
+            <p class="modal-message" id="modal-message">Message</p>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+    </div>
+
+    <!-- PWA Setup -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(reg => console.log('SW registered!', reg))
+            .catch(err => console.log('SW failed', err));
+        }
+    </script>
+
+    <!-- FIREBASE SDK & APP LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // ==========================================
+        // REPLACE THIS OBJECT WITH YOUR FIREBASE CONFIG
+        // ==========================================
+        const firebaseConfig = {
+  apiKey: "AIzaSyDuX25LHt_xrrNCLXvnTTSm6POz08fZKN4",
+  authDomain: "shelfmanager-51ea4.firebaseapp.com",
+  projectId: "shelfmanager-51ea4",
+  storageBucket: "shelfmanager-51ea4.firebasestorage.app",
+  messagingSenderId: "712681345757",
+  appId: "1:712681345757:web:fc93b10d65a9f986504134"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Enable Offline Support!
+        enableIndexedDbPersistence(db).catch(err => console.log("Offline persistence error: ", err));
+
+        window.shelves = [];
+        let currentTab = 'shelves';
+        let currentPaidMemory = 0;
+        let searchActive = false;
+
+        // Firebase Realtime Listener
+        const shelvesRef = collection(db, "shelves");
+        onSnapshot(shelvesRef, async (snapshot) => {
+            if (snapshot.empty) {
+                // Initialize Database if empty
+                const batch = writeBatch(db);
+                for (let i = 1; i <= 24; i++) {
+                    const id = `EC${String(i).padStart(2, '0')}`;
+                    const ref = doc(db, "shelves", id);
+                    batch.set(ref, { id, isRented: false, party: '', dateFrom: '', periodDays: '', rentTotal: 0, rentPaid: 0 });
+                }
+                await batch.commit();
+            } else {
+                window.shelves = snapshot.docs.map(doc => doc.data());
+                // Sort by ID to ensure EC01 to EC24 order
+                window.shelves.sort((a, b) => a.id.localeCompare(b.id));
+                document.getElementById('loading-overlay').style.opacity = '0';
+                refreshAllViews();
+            }
+        });
+
+        // UI Functions attached to window so HTML can trigger them
+        window.showModal = function(title, message, isConfirm = false, onConfirm = null) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            const actions = document.getElementById('modal-actions');
+            if (isConfirm) {
+                actions.innerHTML = `<button class="btn-modal cancel" onclick="closeModal()">Cancel</button><button class="btn-modal confirm" id="modal-btn-confirm">Clear</button>`;
+                document.getElementById('modal-btn-confirm').onclick = () => { closeModal(); if(onConfirm) onConfirm(); };
+            } else {
+                actions.innerHTML = `<button class="btn-modal alert-ok" onclick="closeModal()">OK</button>`;
+            }
+            document.getElementById('custom-modal-overlay').classList.add('active');
+        };
+
+        window.closeModal = function() { document.getElementById('custom-modal-overlay').classList.remove('active'); };
+
+        function getExpiryDate(dateStr, days) {
+            if(!dateStr || !days) return null;
+            const d = new Date(dateStr); d.setDate(d.getDate() + parseInt(days)); return d;
+        }
+
+        function getDaysRemaining(dateStr, days) {
+            const exp = getExpiryDate(dateStr, days); if(!exp) return 999;
+            const now = new Date(); now.setHours(0,0,0,0); exp.setHours(0,0,0,0);
+            return Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+        }
+
+        function refreshAllViews() {
+            window.renderGrid(); window.renderLists();
+            if(searchActive) window.handleSearch(document.getElementById('search-input').value);
+        }
+
+        window.renderGrid = function() {
+            const grid = document.getElementById('shelf-grid'); grid.innerHTML = '';
+            window.shelves.forEach(s => {
+                let statusClass = '';
+                if (s.isRented) {
+                    const remaining = getDaysRemaining(s.dateFrom, s.periodDays);
+                    const due = parseFloat(s.rentTotal) > parseFloat(s.rentPaid);
+                    if (remaining < 0) statusClass = 'expired';
+                    else if (due) statusClass = 'due';
+                    else if (remaining <= 5) statusClass = 'soon';
+                    else statusClass = 'rented';
+                }
+                const searchKey = `${s.id} ${s.party}`.toLowerCase();
+                const tile = document.createElement('div');
+                tile.className = `shelf-tile ${statusClass}`; tile.setAttribute('data-search', searchKey);
+                tile.onclick = () => window.openDetail(s.id);
+                tile.innerHTML = `<div class="shelf-name">${s.id}</div><div class="shelf-party">${s.party || 'Empty'}</div>`;
+                grid.appendChild(tile);
+            });
+        };
+
+        window.renderLists = function() {
+            const lExpired = document.getElementById('list-expired'); const lPending = document.getElementById('list-pending'); const lSoon = document.getElementById('list-soon');
+            lExpired.innerHTML = ''; lPending.innerHTML = ''; lSoon.innerHTML = '';
+            let cExp=0, cPen=0, cSoon=0;
+
+            window.shelves.forEach(s => {
+                if (!s.isRented) return;
+                const remaining = getDaysRemaining(s.dateFrom, s.periodDays);
+                const due = parseFloat(s.rentTotal || 0) - parseFloat(s.rentPaid || 0);
+                const searchKey = `${s.id} ${s.party}`.toLowerCase();
+                const baseHtml = (valText, valColor, tileClass) => `<div class="list-item ${tileClass}" data-search="${searchKey}" onclick="openDetail('${s.id}')"><div><div class="list-title" style="color: var(${valColor})">${s.id}</div><div class="list-sub">${s.party}</div></div><div class="list-val" style="color: var(${valColor})">${valText}</div></div>`;
+
+                if (remaining < 0) { cExp++; lExpired.innerHTML += baseHtml(`Exp ${Math.abs(remaining)}d ago`, '--c-red', 't-red'); }
+                if (due > 0) { cPen++; lPending.innerHTML += baseHtml(`Due ₹${due.toFixed(2)}`, '--c-orange', 't-orange'); }
+                if (remaining >= 0 && remaining <= 5) { cSoon++; lSoon.innerHTML += baseHtml(remaining===0 ? 'Today' : `In ${remaining}d`, '--c-purple', 't-purple'); }
+            });
+
+            if(!cExp) lExpired.innerHTML = '<div class="empty-state">No expired rentals found</div>';
+            if(!cPen) lPending.innerHTML = '<div class="empty-state">No pending payments</div>';
+            if(!cSoon) lSoon.innerHTML = '<div class="empty-state">Nothing expiring soon</div>';
+        };
+
+        window.toggleSearch = function() {
+            searchActive = !searchActive;
+            const title = document.getElementById('header-title'); const box = document.getElementById('search-box'); const input = document.getElementById('search-input'); const iconBtn = document.getElementById('btn-search');
+            if(searchActive) {
+                title.style.opacity = '0';
+                setTimeout(() => { title.style.display = 'none'; box.style.display = 'flex'; input.focus(); }, 150);
+                iconBtn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+            } else {
+                box.style.display = 'none'; title.style.display = 'block';
+                setTimeout(() => { title.style.opacity = '1'; }, 10);
+                iconBtn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+                input.value = ''; window.handleSearch('');
+            }
+        };
+
+        window.handleSearch = function(query) {
+            const q = query.toLowerCase(); const activeView = document.querySelector('.view.active');
+            if(!activeView) return;
+            activeView.querySelectorAll('[data-search]').forEach(item => {
+                if(item.getAttribute('data-search').includes(q)) item.classList.remove('hide-search');
+                else item.classList.add('hide-search');
+            });
+        };
+
+        window.switchTab = function(tabId, navElement) {
+            currentTab = tabId; if(searchActive) window.toggleSearch();
+            document.getElementById('view-detail').classList.remove('active');
+            document.getElementById('btn-back').style.display = 'none';
+            document.getElementById('btn-search').style.display = 'flex';
+            document.getElementById('nav-container').classList.remove('hidden');
+            
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            if(navElement) navElement.classList.add('active');
+            else document.querySelector(`.nav-item[onclick*="${tabId}"]`).classList.add('active');
+            
+            const titles = { shelves: 'Shelves', expired: 'Expired', pending: 'Pending', soon: 'Expiring Soon' };
+            document.getElementById('header-title').innerText = titles[tabId];
+        };
+
+        window.openDetail = function(id) {
+            if(searchActive) window.toggleSearch();
+            const shelf = window.shelves.find(s => s.id === id);
+            currentPaidMemory = parseFloat(shelf.rentPaid) || 0;
+
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-detail').classList.add('active');
+            document.getElementById('btn-back').style.display = 'flex';
+            document.getElementById('btn-search').style.display = 'none';
+            document.getElementById('nav-container').classList.add('hidden');
+            document.getElementById('header-title').innerText = `Shelf ${shelf.id}`;
+            
+            document.getElementById('shelf-id').value = shelf.id;
+            document.getElementById('f-party').value = shelf.party;
+            document.getElementById('f-date').value = shelf.dateFrom;
+            document.getElementById('f-period').value = shelf.periodDays;
+            document.getElementById('f-rent').value = shelf.rentTotal || '';
+            document.getElementById('f-payment').value = '';
+
+            const finSec = document.getElementById('financial-section');
+            const btnClear = document.getElementById('btn-clear');
+            
+            if (shelf.isRented) { finSec.style.display = 'block'; btnClear.style.display = 'block'; window.updateDetailStats(); } 
+            else { finSec.style.display = 'none'; btnClear.style.display = 'none'; }
+        };
+
+        window.closeDetail = function() { window.switchTab(currentTab); };
+
+        window.updateDetailStats = function() {
+            const tInput = parseFloat(document.getElementById('f-rent').value) || 0;
+            const pInput = parseFloat(document.getElementById('f-payment').value) || 0;
+            const due = Math.max(0, tInput - (currentPaidMemory + pInput));
+            document.getElementById('stat-total').innerText = `₹${tInput.toFixed(0)}`;
+            document.getElementById('stat-paid').innerText = `₹${(currentPaidMemory + pInput).toFixed(0)}`;
+            document.getElementById('stat-due').innerText = `₹${due.toFixed(0)}`;
+        };
+
+        window.saveRental = async function() {
+            const id = document.getElementById('shelf-id').value;
+            const party = document.getElementById('f-party').value.trim();
+            const dateFrom = document.getElementById('f-date').value;
+            const period = document.getElementById('f-period').value;
+            const rentTotal = parseFloat(document.getElementById('f-rent').value) || 0;
+            const newPayment = parseFloat(document.getElementById('f-payment').value) || 0;
+
+            if (!party || !dateFrom || !period) { 
+                window.showModal('Missing Details', 'Please fill in the party name, from date, and period before saving.', false);
+                return; 
+            }
+
+            const ref = doc(db, "shelves", id);
+            await setDoc(ref, { id, isRented: true, party, dateFrom, periodDays: period, rentTotal, rentPaid: currentPaidMemory + newPayment }, { merge: true });
+            window.closeDetail();
+        };
+
+        window.promptClearShelf = function() {
+            const id = document.getElementById('shelf-id').value;
+            window.showModal('Clear Shelf', `Are you sure you want to clear all data for ${id}? This action cannot be undone.`, true, async () => {
+                const ref = doc(db, "shelves", id);
+                await setDoc(ref, { id, isRented: false, party: '', dateFrom: '', periodDays: '', rentTotal: 0, rentPaid: 0 }, { merge: true });
+                window.closeDetail();
+            });
+        };
+    </script>
+</body>
+</html>
